@@ -1,0 +1,47 @@
+[project]
+name = "legaleval-qwen"
+version = "0.1.0"
+description = "LegalEval Extract: Qwen zero-shot judge"
+readme = "README.md"
+authors = [
+    { name = "Marcell Megyeri", email = "marcell.megyeri@zocks.io" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "legaleval-gbm",
+    "mlx-lm>=0.32.2",
+    "numpy>=2.5.4",
+    "pandas>=3.0.6",
+    "scikit-learn>=1.9.1",
+]
+
+[project.scripts]
+legaleval-qwen = "legaleval_qwen:main"
+
+[build-system]
+requires = ["uv_build>=0.9.9,<0.10.0"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+legaleval-gbm = { path = "../gbm", editable = true }
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.17.1",
+]
+
+[tool.ruff]
+line-length = 110
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.13"
