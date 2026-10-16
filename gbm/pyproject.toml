@@ -1,0 +1,52 @@
+[project]
+name = "legaleval-gbm"
+version = "0.1.0"
+description = "LegalEval Extract: Feature-GBM baseline"
+readme = "README.md"
+authors = [
+    { name = "Marcell Megyeri", email = "marcell.megyeri@zocks.io" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "numpy>=2.5.4",
+    "pandas>=3.0.6",
+    "pymorphy3>=2.0.6",
+    "rank-bm25>=0.2.2",
+    "scikit-learn>=1.9.1",
+]
+
+[project.scripts]
+legaleval-gbm = "legaleval_gbm:main"
+
+[build-system]
+requires = ["uv_build>=0.9.9,<0.10.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.17.1",
+]
+notebook = [
+    "ipykernel>=7.4.0",
+    "jupyterlab>=4.6.4",
+    "matplotlib>=3.11.2",
+]
+
+[tool.ruff]
+line-length = 110
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.13"
+
+[tool.uv]
+default-groups = ["dev", "notebook"]
