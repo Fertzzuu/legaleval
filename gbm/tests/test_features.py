@@ -4,7 +4,13 @@ import pandas as pd
 import pytest
 
 from legaleval_gbm.data import BLOCKS
-from legaleval_gbm.features import FEATURE_COLUMNS, SourceIndex, build_features, row_features
+from legaleval_gbm.features import (
+    CROSS_BLOCK_COLUMNS,
+    LEXICAL_COLUMNS,
+    SourceIndex,
+    build_features,
+    row_features,
+)
 from legaleval_gbm.text import Lemmatizer, windows
 
 
@@ -65,5 +71,26 @@ def test_build_features_shape_and_block_categories(lemmatizer):
         }
     )
     features = build_features(df, lemmatizer)
-    assert list(features.columns) == ["row_id", "id_sud_resh", *FEATURE_COLUMNS]
+    assert list(features.columns) == ["row_id", "id_sud_resh", *LEXICAL_COLUMNS, *CROSS_BLOCK_COLUMNS]
     assert list(features["block_name"].cat.categories) == list(BLOCKS)
+
+
+def _case_frame(case_ids: list[str], extracted: list[str], source: str) -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "row_id": [f"{c}|{BLOCKS[i]}" for i, c in enumerate(case_ids)],
+            "id_sud_resh": case_ids,
+            "block_name": [BLOCKS[i] for i in range(len(case_ids))],
+            "extracted_text": extracted,
+            "source_text": [source] * len(case_ids),
+        }
+    )
+
+
+def test_cross_block_jaccard_flags_duplicated_extractions(lemmatizer):
+    extracted = ["взыскать долг", "взыскать долг", "иск"]
+    df = _case_frame(["c1", "c1", "c2"], extracted, "Истец просит взыскать долг")
+    features = build_features(df, lemmatizer)
+    assert features["cross_block_jaccard_max"].iloc[0] == pytest.approx(1.0)
+    assert features["cross_block_jaccard_max"].iloc[1] == pytest.approx(1.0)
+    assert math.isnan(features["cross_block_jaccard_max"].iloc[2])
