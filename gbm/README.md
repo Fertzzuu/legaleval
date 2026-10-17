@@ -22,10 +22,10 @@ uv run jupyter lab notebooks/explore.ipynb
 | File | Contents |
 |------|----------|
 | `features_train.csv`, `features_test.csv` | One row per (case, block) with every feature |
-| `oof_gbm.csv` | Out-of-fold predictions averaged over seeds, raw and rescaled |
-| `importance_gbm.csv` | Permutation importance on held-out folds (submit set) |
+| `oof_gbm.csv` | Out-of-fold predictions of the submit model + set, averaged over seeds, raw and rescaled |
+| `importance_gbm.csv` | Permutation importance on held-out folds (submit model + set) |
 | `embeddings/multilingual-e5-large.npz` | Unit-normalized E5 vectors keyed by SHA-1 of the prefixed text |
-| `submission_gbm_<set>_<timestamp>.csv` | Ready for `kaggle competitions submit -c legaleval-extract -f <file> -m "<message>"` |
+| `submission_<model>_<set>_<timestamp>.csv` | Ready for `kaggle competitions submit -c legaleval-extract -f <file> -m "<message>"` |
 
 ## Layout
 

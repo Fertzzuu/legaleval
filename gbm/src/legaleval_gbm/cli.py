@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from legaleval_gbm.cv import CvResult, block_prior, cv_permutation_importance, fit_predict, gbm, run_cv
+from legaleval_gbm.cv import MODELS, CvResult, block_prior, cv_permutation_importance, fit_predict, run_cv
 from legaleval_gbm.data import CASE_ID, DEFAULT_DATA_DIR, ROW_ID, TARGET, load_sample_submission, load_split
 from legaleval_gbm.embeddings import e5_embedder
 from legaleval_gbm.features import FEATURE_SETS, build_features, embedding_features
@@ -23,6 +23,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--folds", type=int, default=5)
     parser.add_argument("--importance-repeats", type=int, default=5)
     parser.add_argument("--submit-set", choices=sorted(FEATURE_SETS), default="all")
+    parser.add_argument("--submit-model", choices=sorted(MODELS), default="blend")
     return parser.parse_args()
 
 
@@ -75,16 +76,18 @@ def main() -> None:
     groups = train[CASE_ID]
     results = [run_cv("block_prior", block_prior, features_train, y, groups, seeds, args.folds)]
     results += [
-        run_cv(name, gbm, features_train[list(columns)], y, groups, seeds, args.folds)
+        run_cv(f"{model}/{name}", factory, features_train[list(columns)], y, groups, seeds, args.folds)
+        for model, factory in MODELS.items()
         for name, columns in FEATURE_SETS.items()
     ]
     summary = pd.DataFrame([row for r in results for row in _summary(r)])
     print(f"\n{args.folds}-fold GroupKFold by case x {len(seeds)} seeds")
     print(summary.round(4).to_string(index=False))
 
+    factory = MODELS[args.submit_model]
     columns = list(FEATURE_SETS[args.submit_set])
     X_train, X_test = features_train[columns], features_test[columns]
-    chosen = next(r for r in results if r.name == args.submit_set)
+    chosen = next(r for r in results if r.name == f"{args.submit_model}/{args.submit_set}")
     pd.DataFrame(
         {
             ROW_ID: train[ROW_ID],
@@ -95,17 +98,17 @@ def main() -> None:
     ).to_csv(args.out_dir / "oof_gbm.csv", index=False)
 
     importance = cv_permutation_importance(
-        gbm, X_train, y, groups, seed=0, n_splits=args.folds, n_repeats=args.importance_repeats
+        factory, X_train, y, groups, seed=0, n_splits=args.folds, n_repeats=args.importance_repeats
     )
     importance.to_csv(args.out_dir / "importance_gbm.csv", index=False)
-    print(f"\npermutation importance for '{args.submit_set}' (held-out MSE increase, seed 0)")
+    print(f"\npermutation importance for '{chosen.name}' (held-out MSE increase, seed 0)")
     print(importance.round(4).to_string(index=False))
 
     submission = pd.DataFrame(
-        {ROW_ID: test[ROW_ID], "predicted_score": fit_predict(gbm, X_train, y, X_test, seeds)}
+        {ROW_ID: test[ROW_ID], "predicted_score": fit_predict(factory, X_train, y, X_test, seeds)}
     )
     _check_submission(submission, load_sample_submission(args.data_dir))
-    stamp = f"{args.submit_set.replace('+', '_')}_{datetime.now():%Y%m%d_%H%M%S}"
-    path = args.out_dir / f"submission_gbm_{stamp}.csv"
+    stamp = f"{args.submit_model}_{args.submit_set.replace('+', '_')}_{datetime.now():%Y%m%d_%H%M%S}"
+    path = args.out_dir / f"submission_{stamp}.csv"
     submission.to_csv(path, index=False)
     print(f"\nsubmission written to {path}")

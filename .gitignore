@@ -2,6 +2,7 @@
 data/
 gbm/outputs/
 qwen/outputs/
+simple/outputs/
 .venv/
 __pycache__/
 .ipynb_checkpoints/

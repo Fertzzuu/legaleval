@@ -4,9 +4,15 @@ from typing import Protocol, Self
 
 import numpy as np
 import pandas as pd
+from sklearn.base import BaseEstimator, RegressorMixin
+from sklearn.compose import ColumnTransformer, make_column_selector
 from sklearn.ensemble import HistGradientBoostingRegressor
+from sklearn.impute import SimpleImputer
 from sklearn.inspection import permutation_importance
+from sklearn.linear_model import RidgeCV
 from sklearn.model_selection import GroupKFold
+from sklearn.pipeline import Pipeline, make_pipeline
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 from legaleval_gbm.data import BLOCK
 from legaleval_gbm.metric import Score, competition_score, rescale
@@ -48,6 +54,43 @@ def gbm(seed: int) -> HistGradientBoostingRegressor:
         categorical_features="from_dtype",
         random_state=seed,
     )
+
+
+def ridge(seed: int) -> Pipeline:
+    preprocess = ColumnTransformer(
+        [
+            (
+                "numeric",
+                make_pipeline(SimpleImputer(strategy="median"), StandardScaler()),
+                make_column_selector(dtype_include="number"),
+            ),
+            ("block", OneHotEncoder(handle_unknown="ignore"), make_column_selector(dtype_include="category")),
+        ]
+    )
+    return make_pipeline(preprocess, RidgeCV(alphas=np.logspace(-2, 3, 20)))
+
+
+class GbmRidgeBlend(RegressorMixin, BaseEstimator):
+    def __init__(self, seed: int = 0, gbm_weight: float = 0.6, gbm_trees: int = 150) -> None:
+        self.seed = seed
+        self.gbm_weight = gbm_weight
+        self.gbm_trees = gbm_trees
+
+    def fit(self, X: pd.DataFrame, y: np.ndarray) -> Self:
+        self.gbm_ = gbm(self.seed).set_params(max_iter=self.gbm_trees).fit(X, y)
+        self.ridge_ = ridge(self.seed).fit(X, y)
+        return self
+
+    def predict(self, X: pd.DataFrame) -> np.ndarray:
+        w = self.gbm_weight
+        return w * self.gbm_.predict(X) + (1 - w) * self.ridge_.predict(X)
+
+
+def gbm_ridge_blend(seed: int) -> GbmRidgeBlend:
+    return GbmRidgeBlend(seed=seed)
+
+
+MODELS: dict[str, ModelFactory] = {"gbm": gbm, "blend": gbm_ridge_blend}
 
 
 @dataclass(frozen=True)
