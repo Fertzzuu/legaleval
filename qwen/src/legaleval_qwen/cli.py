@@ -3,7 +3,7 @@ from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
-from legaleval_gbm.cv import ModelFactory, block_prior, fit_predict, gbm, run_cv
+from legaleval_gbm.cv import ModelFactory, block_prior, fit_predict, gbm, gbm_ridge_blend, run_cv
 from legaleval_gbm.data import (
     BLOCK,
     BLOCKS,
@@ -32,6 +32,8 @@ METHODS: dict[str, tuple[ModelFactory, list[str]]] = {
     "linear_grade_by_block": (linear_grade_by_block, [GRADE, BLOCK]),
     "gbm_all": (gbm, GBM_COLUMNS),
     "gbm_all+llm": (gbm, [*GBM_COLUMNS, GRADE]),
+    "blend_all": (gbm_ridge_blend, GBM_COLUMNS),
+    "blend_all+llm": (gbm_ridge_blend, [*GBM_COLUMNS, GRADE]),
 }
 
 

@@ -10,12 +10,12 @@ in `../gbm` first.
 
 ```bash
 uv sync
-M=mlx-community/Qwen3.6-35B-A3B-4bit
+M=mlx-community/Qwen3.5-4B-MLX-4bit
 uv run legaleval-qwen --model $M judge --split train --limit 3
 uv run legaleval-qwen --model $M judge --split train
 uv run legaleval-qwen --model $M evaluate
 uv run legaleval-qwen --model $M judge --split test
-uv run legaleval-qwen --model $M submit --method gbm_all+llm
+uv run legaleval-qwen --model $M submit --method blend_all+llm
 uv run pytest
 ```
 
