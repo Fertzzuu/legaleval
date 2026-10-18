@@ -3,6 +3,7 @@ import time
 from collections.abc import Callable, Iterator
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import Any, ClassVar, Protocol
 
 import pandas as pd
 from legaleval_gbm.data import BLOCK, BLOCKS, CASE_ID, EXTRACTED, ROW_ID, SOURCE
@@ -32,6 +33,19 @@ class Judgment:
     prompt_tokens: int
     seconds: float
 
+    @classmethod
+    def from_record(cls, record: dict[str, Any]) -> "Judgment":
+        grades = record["grades"]
+        parsed = {int(k): v for k, v in grades.items()} if grades is not None else None
+        return cls(**{**record, "grades": parsed})
+
+
+class CaseRecord(Protocol):
+    __dataclass_fields__: ClassVar[dict[str, Any]]
+
+    @property
+    def case_id(self) -> str: ...
+
 
 def cases(df: pd.DataFrame) -> Iterator[Case]:
     order = {name: i for i, name in enumerate(BLOCKS)}
@@ -46,25 +60,24 @@ def cases(df: pd.DataFrame) -> Iterator[Case]:
         )
 
 
-class JudgmentStore:
-    def __init__(self, path: Path) -> None:
+class JudgmentStore[Record: CaseRecord]:
+    def __init__(self, path: Path, decode: Callable[[dict[str, Any]], Record]) -> None:
         self.path = path
+        self.decode = decode
 
-    def load(self) -> dict[str, Judgment]:
+    def load(self) -> dict[str, Record]:
         if not self.path.exists():
             return {}
-        latest: dict[str, Judgment] = {}
+        latest: dict[str, Record] = {}
         for line in self.path.read_text().splitlines():
-            record = json.loads(line)
-            grades = record["grades"]
-            record["grades"] = {int(k): v for k, v in grades.items()} if grades is not None else None
-            latest[record["case_id"]] = Judgment(**record)
+            record = self.decode(json.loads(line))
+            latest[record.case_id] = record
         return latest
 
-    def append(self, judgment: Judgment) -> None:
+    def append(self, record: Record) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.path.open("a") as f:
-            f.write(json.dumps(asdict(judgment), ensure_ascii=False) + "\n")
+            f.write(json.dumps(asdict(record), ensure_ascii=False) + "\n")
 
 
 Generator = Callable[[list[dict[str, str]]], tuple[str, int]]
@@ -103,15 +116,19 @@ def judge_case(case: Case, model_id: str, generator: Generator) -> Judgment:
     )
 
 
-def grades_frame(df: pd.DataFrame, judgments: dict[str, Judgment]) -> pd.DataFrame:
-    missing = sorted(
-        c for c in df[CASE_ID].unique() if judgments.get(c) is None or judgments[c].grades is None
-    )
+def text_grades(judgments: dict[str, Judgment]) -> dict[str, dict[int, float]]:
+    return {
+        c: {n: float(g) for n, g in j.grades.items()} for c, j in judgments.items() if j.grades is not None
+    }
+
+
+def grades_frame(df: pd.DataFrame, grades_by_case: dict[str, dict[int, float]]) -> pd.DataFrame:
+    missing = sorted(c for c in df[CASE_ID].unique() if c not in grades_by_case)
     if missing:
-        raise ValueError(f"{len(missing)} cases have no valid judgment, e.g. {missing[:5]}; rerun `judge`")
+        raise ValueError(f"{len(missing)} cases have no valid judgment, e.g. {missing[:5]}; rerun the judge")
     rows = [
-        {ROW_ID: case.row_ids[n], GRADE: float(grade)}
+        {ROW_ID: case.row_ids[n], GRADE: grade}
         for case in cases(df)
-        for n, grade in (judgments[case.case_id].grades or {}).items()
+        for n, grade in grades_by_case[case.case_id].items()
     ]
     return pd.DataFrame(rows)
