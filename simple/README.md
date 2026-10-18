@@ -26,6 +26,28 @@ python solution.py
 
 The submission is written to `outputs/submission.csv`.
 
+## Run with Docker (Red Hat UBI)
+
+The image is built from the bare Red Hat base image `registry.access.redhat.com/ubi9/ubi-minimal:9.8`.
+Python 3.12 is installed from Red Hat's UBI repositories during the build; there is no other base or
+build image. The competition data is not baked into the image: it is mounted at run time.
+
+One command shows the empty base image, builds the solution from it (no cache) and runs it:
+
+```bash
+simple/demo.sh
+```
+
+Or step by step, from the repository root:
+
+```bash
+docker build -t legaleval-simple simple
+docker run --rm -v "$PWD/data:/data:ro" -v "$PWD/simple/outputs:/app/outputs" legaleval-simple
+```
+
+The container runs as user 1001. On a Linux host where that user cannot write to `simple/outputs`,
+add `--user "$(id -u)"` to `docker run`.
+
 ## Score
 
 The script prints the cross-validation score using the competition formula
