@@ -3,6 +3,7 @@ data/
 gbm/outputs/
 qwen/outputs/
 simple/outputs/
+simple_llm/outputs/
 agent/outputs/
 .venv/
 __pycache__/
